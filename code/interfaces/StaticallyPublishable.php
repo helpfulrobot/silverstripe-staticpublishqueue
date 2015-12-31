@@ -7,15 +7,15 @@
  * this interface, and calling urlsToCache on these. This implies that any URL should belong
  * to just one object.
  */
-interface StaticallyPublishable {
+interface StaticallyPublishable
+{
 
-	/**
-	 * Get a list of URLs that this object wishes to maintain. URLs should not overlap with other objects.
-	 *
-	 * Note: include the URL of the object itself!
-	 *
-	 * @return array associative array of URL (string) => Priority (int)
-	 */
-	public function urlsToCache();
-
+    /**
+     * Get a list of URLs that this object wishes to maintain. URLs should not overlap with other objects.
+     *
+     * Note: include the URL of the object itself!
+     *
+     * @return array associative array of URL (string) => Priority (int)
+     */
+    public function urlsToCache();
 }

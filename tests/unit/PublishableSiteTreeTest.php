@@ -1,133 +1,129 @@
 <?php
 
-class PublishableSiteTreeTest extends SapphireTest {
+class PublishableSiteTreeTest extends SapphireTest
+{
 
-	protected $requiredExtensions = array(
-		'PublishableSiteTreeTest_Publishable' => array('PublishableSiteTree')
-	);
+    protected $requiredExtensions = array(
+        'PublishableSiteTreeTest_Publishable' => array('PublishableSiteTree')
+    );
 
-	public function setUp() {
-		parent::setUp();
-		Config::inst()->nest();
-		Config::inst()->update('StaticPagesQueue', 'realtime', true);
-	}
+    public function setUp()
+    {
+        parent::setUp();
+        Config::inst()->nest();
+        Config::inst()->update('StaticPagesQueue', 'realtime', true);
+    }
 
-	public function tearDown() {
-		Config::inst()->unnest();
-		parent::tearDown();
-	}
+    public function tearDown()
+    {
+        Config::inst()->unnest();
+        parent::tearDown();
+    }
 
-	function testObjectsToUpdateOnPublish() {
+    public function testObjectsToUpdateOnPublish()
+    {
+        $parent = Object::create('PublishableSiteTreeTest_Publishable');
+        $parent->Title = 'parent';
 
-		$parent = Object::create('PublishableSiteTreeTest_Publishable');
-		$parent->Title = 'parent';
+        $stub = $this->getMock(
+            'PublishableSiteTreeTest_Publishable',
+            array('getParentID', 'Parent')
+        );
+        $stub->Title = 'stub';
 
-		$stub = $this->getMock(
-			'PublishableSiteTreeTest_Publishable',
-			array('getParentID', 'Parent')
-		);
-		$stub->Title = 'stub';
+        $stub->expects($this->once())
+            ->method('getParentID')
+            ->will($this->returnValue('2'));
 
-		$stub->expects($this->once())
-			->method('getParentID')
-			->will($this->returnValue('2'));
+        $stub->expects($this->once())
+            ->method('Parent')
+            ->will($this->returnValue($parent));
 
-		$stub->expects($this->once())
-			->method('Parent')
-			->will($this->returnValue($parent));
+        $objects = $stub->objectsToUpdate(array('action' => 'publish'));
+        $this->assertEquals($objects->column('Title'), array('stub', 'parent'), 'Updates itself and parent on publish');
+    }
 
-		$objects = $stub->objectsToUpdate(array('action' => 'publish'));
-		$this->assertEquals($objects->column('Title'), array('stub', 'parent'), 'Updates itself and parent on publish');
+    public function testObjectsToUpdateOnUnpublish()
+    {
+        $parent = Object::create('PublishableSiteTreeTest_Publishable');
+        $parent->Title = 'parent';
 
-	}
+        $stub = $this->getMock(
+            'PublishableSiteTreeTest_Publishable',
+            array('getParentID', 'Parent')
+        );
+        $stub->Title = 'stub';
 
-	function testObjectsToUpdateOnUnpublish() {
+        $stub->expects($this->once())
+            ->method('getParentID')
+            ->will($this->returnValue('2'));
 
-		$parent = Object::create('PublishableSiteTreeTest_Publishable');
-		$parent->Title = 'parent';
+        $stub->expects($this->once())
+            ->method('Parent')
+            ->will($this->returnValue($parent));
 
-		$stub = $this->getMock(
-			'PublishableSiteTreeTest_Publishable',
-			array('getParentID', 'Parent')
-		);
-		$stub->Title = 'stub';
+        $objects = $stub->objectsToUpdate(array('action' => 'unpublish'));
+        $this->assertEquals($objects->column('Title'), array('parent'), 'Updates parent on unpublish');
+    }
 
-		$stub->expects($this->once())
-			->method('getParentID')
-			->will($this->returnValue('2'));
+    public function testObjectsToDeleteOnPublish()
+    {
+        $stub = Object::create('PublishableSiteTreeTest_Publishable');
+        $objects = $stub->objectsToDelete(array('action' => 'publish'));
+        $this->assertEquals($objects->column('Title'), array(), 'Deletes nothing on publish');
+    }
 
-		$stub->expects($this->once())
-			->method('Parent')
-			->will($this->returnValue($parent));
+    public function testObjectsToDeleteOnUnpublish()
+    {
+        $stub = Object::create('PublishableSiteTreeTest_Publishable');
+        $stub->Title = 'stub';
+        $objects = $stub->objectsToDelete(array('action' => 'unpublish'));
+        $this->assertEquals($objects->column('Title'), array('stub'), 'Deletes itself on unpublish');
+    }
 
-		$objects = $stub->objectsToUpdate(array('action' => 'unpublish'));
-		$this->assertEquals($objects->column('Title'), array('parent'), 'Updates parent on unpublish');
+    public function testObjectsToUpdateOnPublishIfVirtualExists()
+    {
+        $redir = Object::create('PublishableSiteTreeTest_Publishable');
+        $redir->Title = 'virtual';
 
-	}
+        $stub = $this->getMock(
+            'PublishableSiteTreeTest_Publishable',
+            array('getMyVirtualPages')
+        );
+        $stub->Title = 'stub';
 
-	function testObjectsToDeleteOnPublish() {
+        $stub->expects($this->once())
+            ->method('getMyVirtualPages')
+            ->will($this->returnValue(
+                new ArrayList(array($redir))
+            ));
 
-		$stub = Object::create('PublishableSiteTreeTest_Publishable');
-		$objects = $stub->objectsToDelete(array('action' => 'publish'));
-		$this->assertEquals($objects->column('Title'), array(), 'Deletes nothing on publish');
+        $objects = $stub->objectsToUpdate(array('action' => 'publish'));
+        $this->assertTrue(in_array('virtual', $objects->column('Title'), 'Updates related virtual page'));
+    }
 
-	}
+    public function testObjectsToDeleteOnUnpublishIfVirtualExists()
+    {
+        $redir = Object::create('PublishableSiteTreeTest_Publishable');
+        $redir->Title = 'virtual';
 
-	function testObjectsToDeleteOnUnpublish() {
+        $stub = $this->getMock(
+            'PublishableSiteTreeTest_Publishable',
+            array('getMyVirtualPages')
+        );
+        $stub->Title = 'stub';
 
-		$stub = Object::create('PublishableSiteTreeTest_Publishable');
-		$stub->Title = 'stub';
-		$objects = $stub->objectsToDelete(array('action' => 'unpublish'));
-		$this->assertEquals($objects->column('Title'), array('stub'), 'Deletes itself on unpublish');
+        $stub->expects($this->once())
+            ->method('getMyVirtualPages')
+            ->will($this->returnValue(
+                new ArrayList(array($redir))
+            ));
 
-	}
-
-	function testObjectsToUpdateOnPublishIfVirtualExists() {
-
-		$redir = Object::create('PublishableSiteTreeTest_Publishable');
-		$redir->Title = 'virtual';
-
-		$stub = $this->getMock(
-			'PublishableSiteTreeTest_Publishable',
-			array('getMyVirtualPages')
-		);
-		$stub->Title = 'stub';
-
-		$stub->expects($this->once())
-			->method('getMyVirtualPages')
-			->will($this->returnValue(
-				new ArrayList(array($redir))
-			));
-
-		$objects = $stub->objectsToUpdate(array('action' => 'publish'));
-		$this->assertTrue(in_array('virtual', $objects->column('Title'), 'Updates related virtual page'));
-
-	}
-
-	function testObjectsToDeleteOnUnpublishIfVirtualExists() {
-
-		$redir = Object::create('PublishableSiteTreeTest_Publishable');
-		$redir->Title = 'virtual';
-
-		$stub = $this->getMock(
-			'PublishableSiteTreeTest_Publishable',
-			array('getMyVirtualPages')
-		);
-		$stub->Title = 'stub';
-
-		$stub->expects($this->once())
-			->method('getMyVirtualPages')
-			->will($this->returnValue(
-				new ArrayList(array($redir))
-			));
-
-		$objects = $stub->objectsToDelete(array('action' => 'unpublish'));
-		$this->assertTrue(in_array('virtual', $objects->column('Title'), 'Deletes related virtual page'));
-
-	}
-
+        $objects = $stub->objectsToDelete(array('action' => 'unpublish'));
+        $this->assertTrue(in_array('virtual', $objects->column('Title'), 'Deletes related virtual page'));
+    }
 }
 
-class PublishableSiteTreeTest_Publishable extends SiteTree implements TestOnly {
-
+class PublishableSiteTreeTest_Publishable extends SiteTree implements TestOnly
+{
 }

@@ -10,76 +10,79 @@
  * @see SiteTreePublishingEngine
  */
 
-class PublishableSiteTree extends DataExtension implements StaticallyPublishable, StaticPublishingTrigger {
+class PublishableSiteTree extends DataExtension implements StaticallyPublishable, StaticPublishingTrigger
+{
 
-	public function getMyVirtualPages() {
-		return VirtualPage::get()->filter(array('CopyContentFromID' => $this->owner->ID));
-	}
+    public function getMyVirtualPages()
+    {
+        return VirtualPage::get()->filter(array('CopyContentFromID' => $this->owner->ID));
+    }
 
-	public function objectsToUpdate($context) {
+    public function objectsToUpdate($context)
+    {
+        switch ($context['action']) {
 
-		switch ($context['action']) {
+            case 'publish':
+                // Trigger refresh of the page itself.
+                $list = new ArrayList(array($this->owner));
 
-			case 'publish':
-				// Trigger refresh of the page itself.
-				$list = new ArrayList(array($this->owner));
+                // Refresh the parent.
+                if ($this->owner->ParentID) {
+                    $list->push($this->owner->Parent());
+                }
 
-				// Refresh the parent.
-				if ($this->owner->ParentID) $list->push($this->owner->Parent());
+                // Refresh related virtual pages.
+                $virtuals = $this->owner->getMyVirtualPages();
+                if ($virtuals->count()>0) {
+                    foreach ($virtuals as $virtual) {
+                        $list->push($virtual);
+                    }
+                }
 
-				// Refresh related virtual pages.
-				$virtuals = $this->owner->getMyVirtualPages();
-				if ($virtuals->count()>0) {
-					foreach ($virtuals as $virtual) {
-						$list->push($virtual);
-					}
-				}
+                return $list;
 
-				return $list;
+            case 'unpublish':
+                $list = new ArrayList(array());
 
-			case 'unpublish':
-				$list = new ArrayList(array());
+                // Refresh the parent
+                if ($this->owner->ParentID) {
+                    $list->push($this->owner->Parent());
+                }
 
-				// Refresh the parent
-				if ($this->owner->ParentID) $list->push($this->owner->Parent());
+                return $list;
 
-				return $list;
+        }
+    }
 
-		}
+    public function objectsToDelete($context)
+    {
+        switch ($context['action']) {
 
-	}
+            case 'publish':
+                return new ArrayList(array());
 
-	public function objectsToDelete($context) {
+            case 'unpublish':
+                // Trigger cache removal for this page.
+                $list = new ArrayList(array($this->owner));
 
-		switch ($context['action']) {
+                // Trigger removal of the related virtual pages.
+                $virtuals = $this->owner->getMyVirtualPages();
+                if ($virtuals->count()>0) {
+                    foreach ($virtuals as $virtual) {
+                        $list->push($virtual);
+                    }
+                }
 
-			case 'publish':
-				return new ArrayList(array());
+                return $list;
 
-			case 'unpublish':
-				// Trigger cache removal for this page.
-				$list = new ArrayList(array($this->owner));
+        }
+    }
 
-				// Trigger removal of the related virtual pages.
-				$virtuals = $this->owner->getMyVirtualPages();
-				if ($virtuals->count()>0) {
-					foreach ($virtuals as $virtual) {
-						$list->push($virtual);
-					}
-				}
-
-				return $list;
-
-		}
-
-	}
-
-	/**
-	 * The only URL belonging to this object is it's own URL.
-	 */
-	public function urlsToCache() {
-		return array($this->owner->Link() => 0);
-	}
-
+    /**
+     * The only URL belonging to this object is it's own URL.
+     */
+    public function urlsToCache()
+    {
+        return array($this->owner->Link() => 0);
+    }
 }
-
